@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASHP Pharmacy Residency Match 2022–2026 — Interactive Sankey Diagram</title>
+
+    <!-- Meta tags for link previews (Open Graph + Twitter) -->
+    <meta name="description" content="Interactive visualization of ASHP PGY1 and PGY2 pharmacy residency match data from 2022–2026, with school-level trends, fill rates by specialty, and year-over-year comparisons.">
+    <meta property="og:title" content="Pharmacy Residency Match 2022–2026 — Interactive Sankey Diagram">
+    <meta property="og:description" content="Explore 5 years of ASHP match data: applicant flows by state and school, PGY1/PGY2 position fill rates by specialty, and year-over-year trends.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='630' fill='%23f5f5f5'%3E%3Crect width='1200' height='630' rx='0'/%3E%3Ctext x='600' y='280' text-anchor='middle' font-family='system-ui' font-size='48' font-weight='700' fill='%232c3e50'%3EPharmacy Residency Match%3C/text%3E%3Ctext x='600' y='340' text-anchor='middle' font-family='system-ui' font-size='32' fill='%237f8c8d'%3E2022–2026 Interactive Sankey%3C/text%3E%3Ccircle cx='440' cy='420' r='16' fill='%232ecc71'/%3E%3Ctext x='465' y='426' font-family='system-ui' font-size='18' fill='%23333'%3EMatched%3C/text%3E%3Ccircle cx='580' cy='420' r='16' fill='%23e74c3c'/%3E%3Ctext x='605' y='426' font-family='system-ui' font-size='18' fill='%23333'%3EUnfilled%3C/text%3E%3Ccircle cx='720' cy='420' r='16' fill='%239b59b6'/%3E%3Ctext x='745' y='426' font-family='system-ui' font-size='18' fill='%23333'%3EPGY2%3C/text%3E%3C/svg%3E">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Pharmacy Residency Match 2022–2026 — Interactive Sankey Diagram">
+    <meta name="twitter:description" content="5 years of ASHP match data: applicant flows, PGY1/PGY2 fill rates by specialty, and year-over-year trends.">
+
+    <!-- Favicon: mortar & pestle + chart bars -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232c3e50'/%3E%3Crect x='5' y='18' width='5' height='9' rx='1' fill='%232ecc71'/%3E%3Crect x='13' y='12' width='5' height='15' rx='1' fill='%239b59b6'/%3E%3Crect x='21' y='6' width='5' height='21' rx='1' fill='%231abc9c'/%3E%3Ccircle cx='16' cy='6' r='3' fill='none' stroke='%23ecf0f1' stroke-width='1.5'/%3E%3C/svg%3E">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 2400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .subtitle { color: #7f8c8d; margin-bottom: 10px; font-size: 14px; }
+        .data-note { color: #e67e22; font-size: 12px; margin-bottom: 20px; font-style: italic; }
+        #chart { overflow-x: auto; }
+        .node rect { cursor: move; fill-opacity: 0.9; stroke: #000; stroke-width: 0.5px; }
+        .node rect:hover { fill-opacity: 1; }
+        .node text { pointer-events: none; font-size: 11px; fill: #333; }
+        .link { fill: none; stroke: #000; stroke-opacity: 0.2; }
+        .link:hover { stroke-opacity: 0.5; }
+        .tooltip { position: absolute; padding: 12px; background: rgba(0,0,0,0.92); color: white; border-radius: 6px; pointer-events: none; font-size: 13px; line-height: 1.6; z-index: 1000; display: none; max-width: 380px; }
+        .tooltip .yoy { font-size: 11px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.2); }
+        .tooltip .up { color: #2ecc71; } .tooltip .down { color: #e74c3c; } .tooltip .flat { color: #95a5a6; }
+        .state-detail { position: fixed; top: 80px; right: 20px; width: 420px; max-height: 85vh; overflow-y: auto; background: white; border: 2px solid #3498db; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: none; z-index: 2000; }
+        .state-detail h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .state-detail .close-btn { float: right; cursor: pointer; font-size: 24px; color: #95a5a6; line-height: 1; }
+        .state-detail .close-btn:hover { color: #e74c3c; }
+        .school-item { padding: 10px; margin: 8px 0; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #3498db; }
+        .school-name { font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
+        .school-stats { font-size: 12px; color: #7f8c8d; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-top: 5px; }
+        .stat-row { display: flex; justify-content: space-between; }
+        .mini-chart { display: inline-block; vertical-align: middle; }
+        .year-toggle { display: flex; gap: 0; margin: 20px 0 15px; border-radius: 6px; overflow: hidden; border: 2px solid #3498db; width: fit-content; }
+        .year-btn { padding: 10px 24px; border: none; background: white; color: #3498db; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .year-btn:not(:last-child) { border-right: 1px solid #d5e8f5; }
+        .year-btn.active { background: #3498db; color: white; }
+        .year-btn:hover:not(.active) { background: #ebf5fb; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0 0 20px; padding: 16px; background: #f8f9fa; border-radius: 6px; }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 22px; font-weight: bold; color: #2c3e50; }
+        .stat-label { font-size: 11px; color: #7f8c8d; margin-top: 3px; }
+        .stat-change { font-size: 11px; margin-top: 2px; }
+        .stat-change.up { color: #2ecc71; } .stat-change.down { color: #e74c3c; } .stat-change.flat { color: #95a5a6; }
+        .sparkline-row { display: flex; justify-content: center; margin-top: 3px; }
+        .legend { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 20px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 3px; }
+        .school-trend-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; color: #7f8c8d; }
+        .school-trend-label { min-width: 65px; }
+        .pgy2-node { cursor: move; }
+        .pgy2-node:hover rect { fill-opacity: 1; }
+        .pgy2-link { fill: none; stroke-opacity: 0.25; }
+        .pgy2-link:hover { stroke-opacity: 0.5; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 id="mainTitle">Pharmacy Residency Match Flow</h1>
+    <div class="subtitle">American Society of Health-System Pharmacists Resident Matching Program</div>
+    <div class="data-note" id="dataNote"></div>
+    <div class="year-toggle" id="yearToggle"></div>
+    <div class="stats" id="summaryStats"></div>
+    <div id="chart"></div>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="state-detail" id="stateDetail">
+        <span class="close-btn" onclick="document.getElementById('stateDetail').style.display='none'">&times;</span>
+        <div id="stateDetailContent"></div>
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background:#34495e;"></div><span>States (click for schools, drag to reposition)</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#2ecc71;"></div><span>Matched/Filled</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#e74c3c;"></div><span>Unmatched/Unfilled</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#f39c12;"></div><span>Withdrew from Match</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#9b59b6;"></div><span>PGY1 Position Types</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#1abc9c;"></div><span>PGY2 Specialties</span></div>
+    </div>
+</div>
+
+<script>
+const YEARS = [2022,2023,2024,2025,2026];
+let currentYear = 2026;
+
+// ── PGY1 POSITION SUMMARY ───────────────────────────────────────
+const posSummary = {
+    2022:{positions:4242,filled:4152,unfilled:74,types_filled:{general:3619,community:318,managed:68,admin:123,other:24},types_unfilled:{general:20,community:52,managed:0,admin:1,other:1}},
+    2023:{positions:4249,filled:4099,unfilled:114,types_filled:{general:3598,community:283,managed:69,admin:122,other:27},types_unfilled:{general:65,community:38,managed:0,admin:11,other:0}},
+    2024:{positions:4270,filled:4081,unfilled:150,types_filled:{general:3560,community:306,managed:65,admin:124,other:26},types_unfilled:{general:92,community:45,managed:1,admin:12,other:0}},
+    2025:{positions:4259,filled:4063,unfilled:164,types_filled:{general:3522,community:309,managed:68,admin:135,other:29},types_unfilled:{general:105,community:46,managed:0,admin:11,other:2}},
+    2026:{positions:4195,filled:3254,unfilled:941,types_filled:{general:2887,community:194,managed:53,admin:97,other:23},types_unfilled:{general:714,community:158,managed:8,admin:52,other:9}}
+};
+
+// ── PGY2 POSITION SUMMARY ───────────────────────────────────────
+const pgy2Summary = {
+    2022:{positions:960,filled:814,unfilled:146,
+        types_filled:{ambcare:162,critcare:110,em:65,id:83,onc:114,peds:52,psych:51,cardio:32,intmed:25,transplant:29,admin:13,other:78},
+        types_unfilled:{ambcare:34,critcare:0,em:0,id:7,onc:3,peds:9,psych:9,cardio:0,intmed:6,transplant:2,admin:22,other:54}},
+    2023:{positions:979,filled:837,unfilled:142,
+        types_filled:{ambcare:155,critcare:119,em:74,id:89,onc:123,peds:58,psych:50,cardio:26,intmed:31,transplant:33,admin:11,other:67},
+        types_unfilled:{ambcare:41,critcare:0,em:1,id:2,onc:6,peds:2,psych:4,cardio:1,intmed:3,transplant:3,admin:26,other:53}},
+    2024:{positions:945,filled:826,unfilled:119,
+        types_filled:{ambcare:151,critcare:125,em:76,id:90,onc:115,peds:54,psych:45,cardio:25,intmed:32,transplant:27,admin:9,other:77},
+        types_unfilled:{ambcare:19,critcare:3,em:2,id:9,onc:14,peds:15,psych:0,cardio:1,intmed:6,transplant:0,admin:18,other:32}},
+    2025:{positions:974,filled:793,unfilled:181,
+        types_filled:{ambcare:134,critcare:116,em:84,id:93,onc:119,peds:47,psych:40,cardio:27,intmed:26,transplant:30,admin:12,other:65},
+        types_unfilled:{ambcare:39,critcare:5,em:8,id:6,onc:14,peds:18,psych:13,cardio:0,intmed:12,transplant:2,admin:26,other:38}},
+    2026:{positions:927,filled:618,unfilled:309,
+        types_filled:{ambcare:102,critcare:95,em:67,id:72,onc:109,peds:48,psych:22,cardio:20,intmed:22,transplant:20,admin:4,other:37},
+        types_unfilled:{ambcare:48,critcare:30,em:17,id:18,onc:22,peds:19,psych:23,cardio:7,intmed:15,transplant:5,admin:32,other:73}}
+};
+
+const pgy2TypeLabels = {
+    ambcare:'Ambulatory Care', critcare:'Critical Care', em:'Emergency Medicine',
+    id:'Infectious Diseases', onc:'Oncology', peds:'Pediatric', psych:'Psychiatric',
+    cardio:'Cardiology', intmed:'Internal Medicine', transplant:'Transplant',
+    admin:'Health Sys Admin', other:'Other PGY2'
+};
+const pgy2TypeColors = {
+    ambcare:'#1abc9c', critcare:'#16a085', em:'#e67e22', id:'#d35400',
+    onc:'#8e44ad', peds:'#2980b9', psych:'#c0392b', cardio:'#27ae60',
+    intmed:'#2c3e50', transplant:'#f39c12', admin:'#7f8c8d', other:'#95a5a6'
+};
+
+const yearNotes = {
+    2022:"2022 data: Combined Phase I & II",2023:"2023 data: Combined Phase I & II",
+    2024:"2024 data: Combined Phase I & II",2025:"2025 data: Combined Phase I & II",
+    2026:"2026 data: Phase I only — Phase II results not yet available. Direct comparison with prior years (which include Phase II) should account for this difference."
+};
+
+// ── SCHOOL DATA (compact arrays: state,city,school,reg,active,matched,unmatched) ──
+const S = {};
+S[2022]=[["AL","Auburn","Auburn University",71,62,54,8],["AL","Birmingham","Samford University",57,50,36,14],["AR","Little Rock","University of Arkansas",33,28,23,5],["AR","Searcy","Harding University",12,10,7,3],["AZ","Glendale","Midwestern University-Glendale",54,36,25,11],["AZ","Tucson","University of Arizona",61,51,44,7],["CA","Claremont","Keck Graduate Institute",18,13,9,4],["CA","Clovis","California Health Sciences Univ",10,5,2,3],["CA","Elk Grove","California Northstate University",58,46,18,28],["CA","Fullerton","Marshall B. Ketchum University",18,13,6,7],["CA","Irvine","Chapman University",47,38,28,10],["CA","La Jolla","UC San Diego",46,40,33,7],["CA","Loma Linda","Loma Linda University",39,34,23,11],["CA","Los Angeles","USC",112,92,77,15],["CA","Los Angeles","West Coast University",13,6,2,4],["CA","Pomona","Western University",52,41,26,15],["CA","San Francisco","UCSF",105,102,89,13],["CA","Signal Hill","American Univ of Health Sciences",3,3,0,3],["CA","Stockton","University of The Pacific",90,75,52,23],["CA","Vallejo","Touro University - California",46,42,15,27],["CO","Aurora","University of Colorado",89,77,59,18],["CO","Denver","Regis University",32,24,16,8],["CT","Hartford","University of St. Joseph",19,15,12,3],["CT","Storrs","University of Connecticut",45,42,38,4],["DC","Washington","Howard University",12,10,7,3],["FL","Bradenton","Lake Erie College - Bradenton",39,26,13,13],["FL","Fort Lauderdale","Nova Southeastern University",80,67,42,25],["FL","Gainesville","University of Florida",163,140,113,27],["FL","Miami","Larkin University",8,4,2,2],["FL","Tallahassee","Florida A & M University",51,40,23,17],["FL","Tampa","University of South Florida",62,50,42,8],["FL","West Palm Beach","Palm Beach Atlantic University",27,25,16,9],["GA","Athens","University of Georgia",72,65,54,11],["GA","Atlanta","Mercer University",49,38,23,15],["GA","Savannah","South University",26,16,10,6],["GA","Suwanee","PCOM Georgia",34,24,11,13],["HI","Hilo","University of Hawaii at Hilo",33,26,14,12],["IA","Des Moines","Drake University",48,45,34,11],["IA","Iowa City","University of Iowa",51,48,39,9],["ID","Pocatello","Idaho State University",28,20,15,5],["IL","Chicago","Chicago State University",16,10,4,6],["IL","Chicago","University of Illinois",102,90,73,17],["IL","Downers Grove","Midwestern University-Chicago",47,37,26,11],["IL","Edwardsville","Southern Illinois University",37,34,23,11],["IL","North Chicago","Rosalind Franklin University",26,21,14,7],["IL","Schaumburg","Roosevelt University",17,12,10,2],["IN","Fort Wayne","Manchester University",16,13,10,3],["IN","Indianapolis","Butler University",72,61,50,11],["IN","West Lafayette","Purdue University",87,79,72,7],["KS","Lawrence","University of Kansas",57,50,41,9],["KY","Lexington","University of Kentucky",91,82,69,13],["KY","Louisville","Sullivan University",21,15,12,3],["LA","Monroe","University of Louisiana - Monroe",15,13,10,3],["LA","New Orleans","Xavier University of Louisiana",42,36,24,12],["MA","Boston","MCPHS University - Boston",62,40,18,22],["MA","Boston","Northeastern University",57,47,37,10],["MA","Springfield","Western New England University",25,23,18,5],["MA","Worcester","MCPHS University-Worcester",50,35,18,17],["MD","Baltimore","Notre Dame of Maryland",25,21,12,9],["MD","Baltimore","University of Maryland",61,52,43,9],["MD","Princess Anne","UMES",19,16,12,4],["ME","Bangor","Husson University",8,8,4,4],["ME","Portland","University of New England",21,17,12,5],["MI","Ann Arbor","University of Michigan",56,51,46,5],["MI","Big Rapids","Ferris State University",55,38,30,8],["MI","Detroit","Wayne State University",36,34,30,4],["MN","Minneapolis","University of Minnesota",110,98,86,12],["MO","Kansas City","University of Missouri-KC",83,73,65,8],["MO","St. Louis","St. Louis College of Pharmacy",59,49,36,13],["MS","Biloxi","William Carey University",9,8,7,1],["MS","University","University of Mississippi",62,57,51,6],["MT","Missoula","University of Montana",33,30,26,4],["NC","Buies Creek","Campbell University",42,35,25,10],["NC","Chapel Hill","UNC Chapel Hill",88,83,79,4],["NC","High Point","High Point University",35,24,19,5],["NC","Wingate","Wingate University",37,30,15,15],["ND","Fargo","North Dakota State University",28,22,16,6],["NE","Omaha","Creighton University",42,37,31,6],["NE","Omaha","University of Nebraska",28,23,21,2],["NH","Manchester","MCPHS University-Manchester",8,4,4,0],["NJ","Florham Park","Fairleigh Dickinson University",20,16,10,6],["NJ","Piscataway","Rutgers University",70,56,42,14],["NM","Albuquerque","University of New Mexico",27,24,16,8],["NV","Henderson","Roseman University",67,46,24,22],["NY","Albany","Albany College of Pharmacy",74,60,38,22],["NY","Brooklyn","Long Island University",57,51,36,15],["NY","Buffalo","D'Youville College",27,23,15,8],["NY","Buffalo","SUNY Buffalo",40,35,29,6],["NY","Johnson City","Binghamton University",31,29,20,9],["NY","New York","Touro College of Pharmacy",10,6,5,1],["NY","Queens","St. John's University",58,48,35,13],["NY","Rochester","St. John Fisher College",27,23,18,5],["OH","Ada","Ohio Northern University",78,57,51,6],["OH","Cedarville","Cedarville University",24,24,19,5],["OH","Cincinnati","University of Cincinnati",48,39,29,10],["OH","Columbus","Ohio State University",72,63,52,11],["OH","Findlay","University of Findlay",25,24,23,1],["OH","Rootstown","Northeast Ohio Medical University",50,47,41,6],["OH","Toledo","University of Toledo",43,36,34,2],["OK","Oklahoma City","University of Oklahoma",20,15,11,4],["OK","Weatherford","Southwestern Oklahoma State",28,19,14,5],["OR","Corvallis","Oregon State University",61,54,46,8],["OR","Hillsboro","Pacific University",60,48,30,18],["PA","Erie","Lake Erie College - Erie",33,28,20,8],["PA","Philadelphia","Saint Joseph's University",38,31,22,9],["PA","Philadelphia","Temple University",40,34,29,5],["PA","Philadelphia","Thomas Jefferson University",34,33,31,2],["PA","Pittsburgh","Duquesne University",61,48,31,17],["PA","Pittsburgh","University of Pittsburgh",61,54,50,4],["PA","Wilkes-Barre","Wilkes University",30,27,23,4],["PR","San Juan","University of Puerto Rico",9,9,8,1],["RI","Kingston","University of Rhode Island",67,63,58,5],["SC","Charleston","MUSC",42,39,32,7],["SC","Charleston","South Carolina College of Pharmacy",5,3,2,1],["SC","Clinton","Presbyterian College",18,16,14,2],["SC","Columbia","University of South Carolina",47,38,29,9],["SD","Brookings","South Dakota State University",43,38,27,11],["TN","Jackson","Union University",20,18,14,4],["TN","Johnson City","East Tennessee State University",31,28,21,7],["TN","Knoxville","South College",15,13,5,8],["TN","Memphis","University of Tennessee",107,94,77,17],["TN","Nashville","Belmont University",50,44,31,13],["TN","Nashville","Lipscomb University",35,31,27,4],["TX","Amarillo","Texas Tech University",53,45,32,13],["TX","Austin","University of Texas - Austin",73,60,52,8],["TX","El Paso","UT El Paso",17,11,6,5],["TX","Fort Worth","University of North Texas",35,27,19,8],["TX","Houston","Texas Southern University",15,11,6,5],["TX","Houston","University of Houston",64,58,46,12],["TX","Kingsville","Texas A & M University",39,25,18,7],["TX","San Antonio","University of Incarnate Word",31,19,12,7],["TX","Tyler","UT Tyler",18,12,9,3],["UT","Salt Lake City","University of Utah",47,40,34,6],["VA","Hampton","Hampton University",9,5,4,1],["VA","Oakwood","Appalachian College of Pharmacy",15,9,3,6],["VA","Richmond","Virginia Commonwealth University",70,62,53,9],["VA","Winchester","Shenandoah University",42,36,24,12],["WA","Seattle","University of Washington",70,58,44,14],["WA","Spokane","Washington State University",78,48,34,14],["WI","Madison","University of Wisconsin",97,90,82,8],["WI","Mequon","Concordia University",39,36,30,6],["WI","Milwaukee","Medical College of Wisconsin",31,27,25,2],["WV","Charleston","University of Charleston",19,17,11,6],["WV","Huntington","Marshall University",25,23,15,8],["WV","Morgantown","West Virginia University",37,31,28,3],["WY","Laramie","University of Wyoming",14,13,10,3],["OTHER","Lebanon","Lebanese American University",12,11,8,3],["OTHER","Foreign","Foreign School (Non-ACPE)",35,24,7,17]];
+S[2023]=[["AL","Auburn","Auburn University",69,64,56,8],["AL","Birmingham","Samford University",57,54,46,8],["AR","Little Rock","University of Arkansas",21,20,19,1],["AR","Searcy","Harding University",21,21,17,4],["AZ","Glendale","Midwestern University-Glendale",43,32,24,8],["AZ","Tucson","University of Arizona",48,42,33,9],["CA","Claremont","Keck Graduate Institute",24,22,15,7],["CA","Clovis","California Health Sciences Univ",8,5,1,4],["CA","Elk Grove","California Northstate University",34,25,13,12],["CA","Fullerton","Marshall B. Ketchum University",11,8,7,1],["CA","Irvine","Chapman University",42,37,25,12],["CA","La Jolla","UC San Diego",35,31,25,6],["CA","Loma Linda","Loma Linda University",36,29,20,9],["CA","Los Angeles","USC",110,90,73,17],["CA","Los Angeles","West Coast University",13,12,4,8],["CA","Pomona","Western University",56,45,32,13],["CA","San Francisco","UCSF",103,99,84,15],["CA","Signal Hill","American Univ of Health Sciences",5,5,2,3],["CA","Stockton","University of The Pacific",92,68,51,17],["CA","Vallejo","Touro University - California",39,31,27,4],["CO","Aurora","University of Colorado",70,62,52,10],["CO","Denver","Regis University",21,18,15,3],["CT","Hartford","University of St. Joseph",13,11,9,2],["CT","Storrs","University of Connecticut",47,41,38,3],["DC","Washington","Howard University",21,18,10,8],["FL","Bradenton","Lake Erie College - Bradenton",27,19,10,9],["FL","Fort Lauderdale","Nova Southeastern University",101,84,49,35],["FL","Gainesville","University of Florida",131,116,106,10],["FL","Miami","Larkin University",7,5,1,4],["FL","Tallahassee","Florida A & M University",36,32,14,18],["FL","Tampa","University of South Florida",35,34,31,3],["FL","West Palm Beach","Palm Beach Atlantic University",24,21,12,9],["GA","Athens","University of Georgia",80,71,63,8],["GA","Atlanta","Mercer University",38,31,21,10],["GA","Savannah","South University",12,9,6,3],["GA","Suwanee","PCOM Georgia",29,27,17,10],["HI","Hilo","University of Hawaii at Hilo",21,16,9,7],["IA","Des Moines","Drake University",38,35,30,5],["IA","Iowa City","University of Iowa",60,54,49,5],["ID","Pocatello","Idaho State University",26,21,19,2],["IL","Chicago","Chicago State University",8,6,4,2],["IL","Chicago","University of Illinois",85,78,65,13],["IL","Downers Grove","Midwestern University-Chicago",56,51,39,12],["IL","Edwardsville","Southern Illinois University",34,28,24,4],["IL","North Chicago","Rosalind Franklin University",22,17,13,4],["IL","Schaumburg","Roosevelt University",9,7,5,2],["IN","Fort Wayne","Manchester University",30,30,20,10],["IN","Indianapolis","Butler University",50,46,40,6],["IN","West Lafayette","Purdue University",77,72,67,5],["KS","Lawrence","University of Kansas",61,56,48,8],["KY","Lexington","University of Kentucky",78,75,68,7],["KY","Louisville","Sullivan University",6,3,2,1],["LA","Monroe","University of Louisiana - Monroe",15,14,13,1],["LA","New Orleans","Xavier University of Louisiana",40,37,27,10],["MA","Boston","MCPHS University - Boston",51,39,25,14],["MA","Boston","Northeastern University",41,40,36,4],["MA","Springfield","Western New England University",12,11,9,2],["MA","Worcester","MCPHS University-Worcester",36,27,10,17],["MD","Baltimore","Notre Dame of Maryland",19,15,11,4],["MD","Baltimore","University of Maryland",48,42,33,9],["MD","Princess Anne","UMES",14,13,10,3],["ME","Bangor","Husson University",11,11,8,3],["ME","Portland","University of New England",17,16,13,3],["MI","Ann Arbor","University of Michigan",55,50,48,2],["MI","Big Rapids","Ferris State University",52,43,36,7],["MI","Detroit","Wayne State University",43,39,28,11],["MN","Minneapolis","University of Minnesota",103,91,83,8],["MO","Kansas City","University of Missouri-KC",68,59,46,13],["MO","St. Louis","St. Louis College of Pharmacy",37,35,30,5],["MS","Biloxi","William Carey University",9,9,5,4],["MS","University","University of Mississippi",50,44,40,4],["MT","Missoula","University of Montana",18,15,14,1],["NC","Buies Creek","Campbell University",40,37,34,3],["NC","Chapel Hill","UNC Chapel Hill",88,85,80,5],["NC","High Point","High Point University",33,27,19,8],["NC","Wingate","Wingate University",35,26,22,4],["ND","Fargo","North Dakota State University",39,35,31,4],["NE","Omaha","Creighton University",46,39,34,5],["NE","Omaha","University of Nebraska",19,17,14,3],["NH","Manchester","MCPHS University-Manchester",7,6,5,1],["NJ","Florham Park","Fairleigh Dickinson University",17,16,10,6],["NJ","Piscataway","Rutgers University",41,38,35,3],["NM","Albuquerque","University of New Mexico",27,25,20,5],["NV","Henderson","Roseman University",59,45,32,13],["NY","Albany","Albany College of Pharmacy",46,38,31,7],["NY","Brooklyn","Long Island University",43,35,22,13],["NY","Buffalo","D'Youville College",21,17,10,7],["NY","Buffalo","SUNY Buffalo",55,48,43,5],["NY","Johnson City","Binghamton University",27,25,24,1],["NY","New York","Touro College of Pharmacy",15,11,8,3],["NY","Queens","St. John's University",58,49,38,11],["NY","Rochester","St. John Fisher College",25,24,22,2],["OH","Ada","Ohio Northern University",65,60,52,8],["OH","Cedarville","Cedarville University",26,20,15,5],["OH","Cincinnati","University of Cincinnati",46,42,35,7],["OH","Columbus","Ohio State University",79,74,69,5],["OH","Findlay","University of Findlay",21,17,15,2],["OH","Rootstown","Northeast Ohio Medical University",41,36,34,2],["OH","Toledo","University of Toledo",51,47,36,11],["OK","Oklahoma City","University of Oklahoma",17,15,13,2],["OK","Weatherford","Southwestern Oklahoma State",13,8,7,1],["OR","Corvallis","Oregon State University",55,51,45,6],["OR","Hillsboro","Pacific University",35,22,20,2],["PA","Erie","Lake Erie College - Erie",31,22,16,6],["PA","Philadelphia","Saint Joseph's University",46,41,34,7],["PA","Philadelphia","Temple University",47,42,37,5],["PA","Philadelphia","Thomas Jefferson University",22,19,17,2],["PA","Pittsburgh","Duquesne University",50,46,37,9],["PA","Pittsburgh","University of Pittsburgh",65,58,50,8],["PA","Wilkes-Barre","Wilkes University",25,21,17,4],["PR","San Juan","University of Puerto Rico",8,5,4,1],["RI","Kingston","University of Rhode Island",63,58,54,4],["SC","Charleston","MUSC",42,37,35,2],["SC","Charleston","South Carolina College of Pharmacy",1,1,0,1],["SC","Clinton","Presbyterian College",21,18,16,2],["SC","Columbia","University of South Carolina",45,40,34,6],["SD","Brookings","South Dakota State University",40,35,27,8],["TN","Jackson","Union University",17,13,11,2],["TN","Johnson City","East Tennessee State University",34,32,25,7],["TN","Knoxville","South College",13,10,4,6],["TN","Memphis","University of Tennessee",99,86,78,8],["TN","Nashville","Belmont University",31,28,23,5],["TN","Nashville","Lipscomb University",41,38,35,3],["TX","Amarillo","Texas Tech University",70,56,49,7],["TX","Austin","University of Texas - Austin",61,51,42,9],["TX","El Paso","UT El Paso",19,13,10,3],["TX","Fort Worth","University of North Texas",28,24,19,5],["TX","Houston","Texas Southern University",22,17,12,5],["TX","Houston","University of Houston",76,68,55,13],["TX","Kingsville","Texas A & M University",29,21,18,3],["TX","San Antonio","University of Incarnate Word",32,25,21,4],["TX","Tyler","UT Tyler",18,15,15,0],["UT","Salt Lake City","University of Utah",39,33,30,3],["VA","Hampton","Hampton University",3,2,0,2],["VA","Oakwood","Appalachian College of Pharmacy",8,7,5,2],["VA","Richmond","Virginia Commonwealth University",51,46,44,2],["VA","Winchester","Shenandoah University",26,22,19,3],["WA","Seattle","University of Washington",67,58,47,11],["WA","Spokane","Washington State University",49,44,31,13],["WI","Madison","University of Wisconsin",86,83,81,2],["WI","Mequon","Concordia University",29,26,24,2],["WI","Milwaukee","Medical College of Wisconsin",25,24,20,4],["WV","Charleston","University of Charleston",19,18,11,7],["WV","Huntington","Marshall University",23,18,12,6],["WV","Morgantown","West Virginia University",36,34,28,6],["WY","Laramie","University of Wyoming",10,9,7,2],["OTHER","Lebanon","Lebanese American University",9,7,6,1],["OTHER","Foreign","Foreign School (Non-ACPE)",29,21,9,12]];
+S[2024]=[["AL","Auburn","Auburn University",61,54,46,8],["AL","Birmingham","Samford University",47,46,40,6],["AR","Little Rock","University of Arkansas",28,24,15,9],["AR","Searcy","Harding University",17,15,12,3],["AZ","Glendale","Midwestern University-Glendale",49,46,34,12],["AZ","Tucson","University of Arizona",55,50,38,12],["CA","Claremont","Keck Graduate Institute",33,31,20,11],["CA","Clovis","California Health Sciences Univ",1,1,0,1],["CA","Elk Grove","California Northstate University",25,24,10,14],["CA","Fullerton","Marshall B. Ketchum University",24,19,8,11],["CA","Irvine","Chapman University",42,37,30,7],["CA","La Jolla","UC San Diego",43,40,34,6],["CA","Loma Linda","Loma Linda University",38,34,17,17],["CA","Los Angeles","USC",98,87,63,24],["CA","Los Angeles","West Coast University",17,15,8,7],["CA","Pomona","Western University",43,37,30,7],["CA","San Francisco","UCSF",100,93,80,13],["CA","Signal Hill","American Univ of Health Sciences",4,4,1,3],["CA","Stockton","University of The Pacific",111,97,61,36],["CA","Vallejo","Touro University - California",47,40,25,15],["CO","Aurora","University of Colorado",83,75,63,12],["CO","Denver","Regis University",22,18,16,2],["CT","Hartford","University of St. Joseph",12,10,10,0],["CT","Storrs","University of Connecticut",34,34,30,4],["DC","Washington","Howard University",18,15,9,6],["FL","Bradenton","Lake Erie College - Bradenton",17,12,8,4],["FL","Fort Lauderdale","Nova Southeastern University",73,70,45,25],["FL","Gainesville","University of Florida",117,106,95,11],["FL","Miami","Larkin University",4,3,2,1],["FL","Tallahassee","Florida A & M University",49,40,22,18],["FL","Tampa","University of South Florida",47,44,36,8],["FL","West Palm Beach","Palm Beach Atlantic University",18,15,12,3],["GA","Athens","University of Georgia",87,78,70,8],["GA","Atlanta","Mercer University",40,38,24,14],["GA","Savannah","South University",21,19,10,9],["GA","Suwanee","PCOM Georgia",21,14,8,6],["HI","Hilo","University of Hawaii at Hilo",16,14,11,3],["IA","Des Moines","Drake University",49,46,38,8],["IA","Iowa City","University of Iowa",71,67,64,3],["ID","Pocatello","Idaho State University",33,30,25,5],["IL","Chicago","Chicago State University",8,7,4,3],["IL","Chicago","University of Illinois",83,76,58,18],["IL","Downers Grove","Midwestern University-Chicago",78,70,53,17],["IL","Edwardsville","Southern Illinois University",29,28,26,2],["IL","North Chicago","Rosalind Franklin University",29,26,16,10],["IL","Schaumburg","Roosevelt University",20,15,13,2],["IN","Fort Wayne","Manchester University",19,15,11,4],["IN","Indianapolis","Butler University",51,45,42,3],["IN","West Lafayette","Purdue University",61,55,48,7],["KS","Lawrence","University of Kansas",61,56,52,4],["KY","Lexington","University of Kentucky",66,59,56,3],["KY","Louisville","Sullivan University",16,12,6,6],["LA","Monroe","University of Louisiana - Monroe",17,15,14,1],["LA","New Orleans","Xavier University of Louisiana",38,37,31,6],["MA","Boston","MCPHS University - Boston",44,38,23,15],["MA","Boston","Northeastern University",37,32,28,4],["MA","Springfield","Western New England University",12,12,11,1],["MA","Worcester","MCPHS University-Worcester",46,34,19,15],["MD","Baltimore","Notre Dame of Maryland",14,11,7,4],["MD","Baltimore","University of Maryland",44,43,36,7],["MD","Princess Anne","UMES",10,8,4,4],["ME","Bangor","Husson University",4,3,2,1],["ME","Portland","University of New England",12,10,9,1],["MI","Ann Arbor","University of Michigan",48,48,41,7],["MI","Big Rapids","Ferris State University",34,32,26,6],["MI","Detroit","Wayne State University",31,30,29,1],["MN","Minneapolis","University of Minnesota",80,69,63,6],["MO","Kansas City","University of Missouri-KC",57,55,49,6],["MO","St. Louis","St. Louis College of Pharmacy",49,45,43,2],["MS","Biloxi","William Carey University",7,6,4,2],["MS","University","University of Mississippi",46,44,38,6],["MT","Missoula","University of Montana",17,15,15,0],["NC","Buies Creek","Campbell University",39,34,30,4],["NC","Chapel Hill","UNC Chapel Hill",87,82,75,7],["NC","High Point","High Point University",26,22,14,8],["NC","Wingate","Wingate University",42,39,30,9],["ND","Fargo","North Dakota State University",35,32,28,4],["NE","Omaha","Creighton University",33,28,23,5],["NE","Omaha","University of Nebraska",28,26,25,1],["NH","Manchester","MCPHS University-Manchester",3,3,2,1],["NJ","Florham Park","Fairleigh Dickinson University",17,12,6,6],["NJ","Piscataway","Rutgers University",55,52,48,4],["NM","Albuquerque","University of New Mexico",20,18,16,2],["NV","Henderson","Roseman University",70,59,46,13],["NY","Albany","Albany College of Pharmacy",48,45,41,4],["NY","Brooklyn","Long Island University",43,32,18,14],["NY","Buffalo","D'Youville College",20,15,12,3],["NY","Buffalo","SUNY Buffalo",48,47,44,3],["NY","Johnson City","Binghamton University",35,31,25,6],["NY","New York","Touro College of Pharmacy",18,13,9,4],["NY","Queens","St. John's University",88,81,52,29],["NY","Rochester","St. John Fisher College",21,18,14,4],["OH","Ada","Ohio Northern University",89,86,72,14],["OH","Cedarville","Cedarville University",32,27,22,5],["OH","Cincinnati","University of Cincinnati",25,24,21,3],["OH","Columbus","Ohio State University",67,59,55,4],["OH","Findlay","University of Findlay",37,35,30,5],["OH","Rootstown","Northeast Ohio Medical University",33,31,27,4],["OH","Toledo","University of Toledo",44,42,35,7],["OK","Oklahoma City","University of Oklahoma",15,12,11,1],["OK","Weatherford","Southwestern Oklahoma State",16,14,14,0],["OR","Corvallis","Oregon State University",46,43,35,8],["OR","Hillsboro","Pacific University",47,41,37,4],["PA","Erie","Lake Erie College - Erie",31,26,16,10],["PA","Philadelphia","Saint Joseph's University",47,40,33,7],["PA","Philadelphia","Temple University",39,34,25,9],["PA","Philadelphia","Thomas Jefferson University",21,21,18,3],["PA","Pittsburgh","Duquesne University",47,39,35,4],["PA","Pittsburgh","University of Pittsburgh",58,57,51,6],["PA","Wilkes-Barre","Wilkes University",25,23,22,1],["PR","San Juan","University of Puerto Rico",11,10,6,4],["RI","Kingston","University of Rhode Island",79,71,64,7],["SC","Charleston","MUSC",42,40,35,5],["SC","Charleston","South Carolina College of Pharmacy",1,1,0,1],["SC","Clinton","Presbyterian College",11,11,9,2],["SC","Columbia","University of South Carolina",51,50,48,2],["SD","Brookings","South Dakota State University",35,30,28,2],["TN","Jackson","Union University",11,11,11,0],["TN","Johnson City","East Tennessee State University",12,12,11,1],["TN","Knoxville","South College",12,9,6,3],["TN","Memphis","University of Tennessee",98,89,76,13],["TN","Nashville","Belmont University",36,29,22,7],["TN","Nashville","Lipscomb University",25,22,20,2],["TX","Amarillo","Texas Tech University",41,37,28,9],["TX","Austin","University of Texas - Austin",57,51,46,5],["TX","El Paso","UT El Paso",16,16,14,2],["TX","Fort Worth","University of North Texas",24,21,20,1],["TX","Houston","Texas Southern University",16,13,9,4],["TX","Houston","University of Houston",69,65,53,12],["TX","Kingsville","Texas A & M University",41,24,18,6],["TX","San Antonio","University of Incarnate Word",28,23,18,5],["TX","Tyler","UT Tyler",13,12,9,3],["UT","Salt Lake City","University of Utah",36,31,29,2],["VA","Hampton","Hampton University",3,3,3,0],["VA","Oakwood","Appalachian College of Pharmacy",10,9,5,4],["VA","Richmond","Virginia Commonwealth University",60,58,51,7],["VA","Winchester","Shenandoah University",27,27,18,9],["WA","Seattle","University of Washington",75,66,57,9],["WA","Spokane","Washington State University",39,33,24,9],["WI","Madison","University of Wisconsin",72,66,64,2],["WI","Mequon","Concordia University",33,33,30,3],["WI","Milwaukee","Medical College of Wisconsin",24,24,21,3],["WV","Charleston","University of Charleston",15,14,12,2],["WV","Huntington","Marshall University",30,24,17,7],["WV","Morgantown","West Virginia University",22,22,18,4],["WY","Laramie","University of Wyoming",14,11,8,3],["OTHER","Lebanon","Lebanese American University",11,10,5,5],["OTHER","Foreign","Foreign School (Non-ACPE)",21,14,4,10]];
+S[2025]=[["AL","Auburn","Auburn University",65,61,56,5],["AL","Birmingham","Samford University",33,30,25,5],["AR","Little Rock","University of Arkansas",33,27,22,5],["AR","Searcy","Harding University",10,10,9,1],["AZ","Glendale","Midwestern University-Glendale",43,38,34,4],["AZ","Tucson","University of Arizona",58,52,44,8],["CA","Claremont","Keck Graduate Institute",29,25,14,11],["CA","Clovis","California Health Sciences Univ",2,2,0,2],["CA","Elk Grove","California Northstate University",16,12,7,5],["CA","Fullerton","Marshall B. Ketchum University",12,9,6,3],["CA","Irvine","Chapman University",37,33,25,8],["CA","Irvine","UC Irvine",25,19,15,4],["CA","La Jolla","UC San Diego",50,48,42,6],["CA","Loma Linda","Loma Linda University",29,22,16,6],["CA","Los Angeles","USC",112,95,65,30],["CA","Los Angeles","West Coast University",11,8,3,5],["CA","Pomona","Western University",62,48,34,14],["CA","San Francisco","UCSF",98,90,72,18],["CA","Signal Hill","American Univ of Health Sciences",4,4,1,3],["CA","Stockton","University of The Pacific",132,115,74,41],["CA","Vallejo","Touro University - California",34,32,17,15],["CO","Aurora","University of Colorado",50,50,38,12],["CO","Denver","Regis University",23,17,15,2],["CT","Hartford","University of St. Joseph",20,18,13,5],["CT","Storrs","University of Connecticut",48,45,35,10],["DC","Washington","Howard University",31,28,20,8],["FL","Bradenton","Lake Erie College - Bradenton",31,28,19,9],["FL","Fort Lauderdale","Nova Southeastern University",81,72,48,24],["FL","Gainesville","University of Florida",123,110,100,10],["FL","Miami","Larkin University",2,2,1,1],["FL","Tallahassee","Florida A & M University",39,30,16,14],["FL","Tampa","University of South Florida",46,42,39,3],["FL","West Palm Beach","Palm Beach Atlantic University",18,17,14,3],["GA","Athens","University of Georgia",72,67,60,7],["GA","Atlanta","Mercer University",42,37,28,9],["GA","Savannah","South University",32,26,16,10],["GA","Suwanee","PCOM Georgia",19,13,8,5],["HI","Hilo","University of Hawaii at Hilo",16,15,14,1],["IA","Des Moines","Drake University",38,32,29,3],["IA","Iowa City","University of Iowa",56,51,48,3],["ID","Pocatello","Idaho State University",32,29,23,6],["IL","Chicago","Chicago State University",2,2,0,2],["IL","Chicago","University of Illinois",93,78,70,8],["IL","Downers Grove","Midwestern University-Chicago",29,27,17,10],["IL","Edwardsville","Southern Illinois University",34,32,31,1],["IL","North Chicago","Rosalind Franklin University",20,16,14,2],["IL","Schaumburg","Roosevelt University",18,16,12,4],["IN","Fort Wayne","Manchester University",18,16,9,7],["IN","Indianapolis","Butler University",39,36,34,2],["IN","West Lafayette","Purdue University",82,77,74,3],["KS","Lawrence","University of Kansas",49,45,41,4],["KY","Lexington","University of Kentucky",76,71,64,7],["KY","Louisville","Sullivan University",15,12,9,3],["LA","Monroe","University of Louisiana - Monroe",23,21,19,2],["LA","New Orleans","Xavier University of Louisiana",40,37,29,8],["MA","Boston","MCPHS University - Boston",53,42,30,12],["MA","Boston","Northeastern University",45,39,33,6],["MA","Springfield","Western New England University",17,14,13,1],["MA","Worcester","MCPHS University-Worcester",29,21,14,7],["MD","Baltimore","Notre Dame of Maryland",19,15,8,7],["MD","Baltimore","University of Maryland",46,40,31,9],["MD","Princess Anne","UMES",8,7,5,2],["ME","Bangor","Husson University",4,4,3,1],["ME","Portland","University of New England",14,12,10,2],["MI","Ann Arbor","University of Michigan",55,51,47,4],["MI","Big Rapids","Ferris State University",61,52,42,10],["MI","Detroit","Wayne State University",44,37,30,7],["MN","Minneapolis","University of Minnesota",89,76,64,12],["MO","Kansas City","University of Missouri-KC",43,36,33,3],["MO","St. Louis","St. Louis College of Pharmacy",40,33,30,3],["MS","Biloxi","William Carey University",13,11,9,2],["MS","University","University of Mississippi",54,51,47,4],["MT","Missoula","University of Montana",25,23,22,1],["NC","Buies Creek","Campbell University",36,31,25,6],["NC","Chapel Hill","UNC Chapel Hill",90,85,78,7],["NC","High Point","High Point University",24,21,18,3],["NC","Wingate","Wingate University",29,28,22,6],["ND","Fargo","North Dakota State University",28,26,25,1],["NE","Omaha","Creighton University",31,27,20,7],["NE","Omaha","University of Nebraska",20,20,18,2],["NH","Manchester","MCPHS University-Manchester",3,3,2,1],["NJ","Florham Park","Fairleigh Dickinson University",23,20,9,11],["NJ","Piscataway","Rutgers University",77,67,52,15],["NM","Albuquerque","University of New Mexico",21,19,18,1],["NV","Henderson","Roseman University",52,45,35,10],["NY","Albany","Albany College of Pharmacy",57,43,28,15],["NY","Brooklyn","Long Island University",48,38,16,22],["NY","Buffalo","D'Youville College",33,29,17,12],["NY","Buffalo","SUNY Buffalo",51,46,36,10],["NY","Johnson City","Binghamton University",39,36,27,9],["NY","New York","Touro College of Pharmacy",26,22,14,8],["NY","Queens","St. John's University",82,71,54,17],["NY","Rochester","St. John Fisher College",38,35,27,8],["OH","Ada","Ohio Northern University",72,69,64,5],["OH","Cedarville","Cedarville University",24,24,21,3],["OH","Cincinnati","University of Cincinnati",30,28,25,3],["OH","Columbus","Ohio State University",66,62,56,6],["OH","Findlay","University of Findlay",26,20,16,4],["OH","Rootstown","Northeast Ohio Medical University",29,26,21,5],["OH","Toledo","University of Toledo",59,56,54,2],["OK","Oklahoma City","University of Oklahoma",17,17,15,2],["OK","Weatherford","Southwestern Oklahoma State",25,18,14,4],["OR","Corvallis","Oregon State University",45,43,36,7],["OR","Hillsboro","Pacific University",29,23,17,6],["PA","Erie","Lake Erie College - Erie",51,37,25,12],["PA","Philadelphia","Saint Joseph's University",58,50,37,13],["PA","Philadelphia","Temple University",40,35,29,6],["PA","Philadelphia","Thomas Jefferson University",21,20,15,5],["PA","Pittsburgh","Duquesne University",48,46,38,8],["PA","Pittsburgh","University of Pittsburgh",58,54,49,5],["PA","Wilkes-Barre","Wilkes University",30,27,24,3],["PR","San Juan","University of Puerto Rico",15,14,6,8],["RI","Kingston","University of Rhode Island",75,70,64,6],["SC","Charleston","MUSC",47,38,33,5],["SC","Charleston","South Carolina College of Pharmacy",1,1,1,0],["SC","Clinton","Presbyterian College",10,8,6,2],["SC","Columbia","University of South Carolina",54,53,43,10],["SD","Brookings","South Dakota State University",32,29,27,2],["TN","Jackson","Union University",14,12,12,0],["TN","Johnson City","East Tennessee State University",19,18,16,2],["TN","Knoxville","South College",13,10,6,4],["TN","Memphis","University of Tennessee",77,72,67,5],["TN","Nashville","Belmont University",29,28,24,4],["TN","Nashville","Lipscomb University",25,20,19,1],["TX","Amarillo","Texas Tech University",43,36,27,9],["TX","Austin","University of Texas - Austin",60,53,49,4],["TX","El Paso","UT El Paso",24,19,14,5],["TX","Fort Worth","University of North Texas",41,36,29,7],["TX","Houston","Texas Southern University",22,18,9,9],["TX","Houston","University of Houston",56,47,37,10],["TX","Kingsville","Texas A & M University",45,39,29,10],["TX","San Antonio","University of Incarnate Word",26,23,18,5],["TX","Tyler","UT Tyler",7,6,6,0],["UT","Salt Lake City","University of Utah",28,27,21,6],["VA","Hampton","Hampton University",0,0,0,0],["VA","Oakwood","Appalachian College of Pharmacy",5,2,1,1],["VA","Richmond","Virginia Commonwealth University",59,56,50,6],["VA","Winchester","Shenandoah University",29,24,15,9],["WA","Seattle","University of Washington",61,57,49,8],["WA","Spokane","Washington State University",44,37,25,12],["WI","Madison","University of Wisconsin",89,83,83,0],["WI","Mequon","Concordia University",28,24,21,3],["WI","Milwaukee","Medical College of Wisconsin",32,31,28,3],["WV","Charleston","University of Charleston",16,14,13,1],["WV","Huntington","Marshall University",14,12,9,3],["WV","Morgantown","West Virginia University",32,31,26,5],["WY","Laramie","University of Wyoming",11,11,11,0],["OTHER","Lebanon","Lebanese American University",18,12,6,6],["OTHER","Foreign","Foreign School (Non-ACPE)",33,26,7,19]];
+S[2026]=[["AL","Auburn","Auburn University",62,54,49,5],["AL","Birmingham","Samford University",31,29,27,2],["AR","Little Rock","University of Arkansas",23,21,18,3],["AR","Searcy","Harding University",10,10,9,1],["AZ","Glendale","Midwestern University-Glendale",41,32,25,7],["AZ","Tucson","University of Arizona",72,63,50,13],["CA","Claremont","Keck Graduate Institute",13,11,5,6],["CA","Clovis","California Health Sciences Univ",1,0,0,0],["CA","Elk Grove","California Northstate University",22,19,8,11],["CA","Fullerton","Marshall B. Ketchum University",14,10,4,6],["CA","Irvine","Chapman University",53,45,37,8],["CA","Irvine","UC Irvine",37,31,24,7],["CA","La Jolla","UC San Diego",50,49,40,9],["CA","Loma Linda","Loma Linda University",30,26,13,13],["CA","Los Angeles","USC",105,93,58,35],["CA","Los Angeles","West Coast University",15,10,3,7],["CA","Pomona","Western University",33,26,14,12],["CA","San Francisco","UCSF",103,89,68,21],["CA","Signal Hill","American Univ of Health Sciences",7,3,0,3],["CA","Stockton","University of The Pacific",108,86,53,33],["CA","Vallejo","Touro University - California",36,30,13,17],["CO","Aurora","University of Colorado",63,53,39,14],["CO","Denver","Regis University",25,20,10,10],["CT","Hartford","University of St. Joseph",11,10,6,4],["CT","Storrs","University of Connecticut",43,42,40,2],["DC","Washington","Howard University",26,23,15,8],["FL","Bradenton","Lake Erie College - Bradenton",20,16,11,5],["FL","Fort Lauderdale","Nova Southeastern University",73,64,35,29],["FL","Gainesville","University of Florida",134,115,91,24],["FL","Miami","Larkin University",9,8,5,3],["FL","Tallahassee","Florida A & M University",26,18,10,8],["FL","Tampa","University of South Florida",36,34,29,5],["FL","West Palm Beach","Palm Beach Atlantic University",15,13,8,5],["GA","Athens","University of Georgia",65,59,52,7],["GA","Atlanta","Mercer University",27,21,17,4],["GA","Savannah","South University",21,18,16,2],["GA","Suwanee","PCOM Georgia",14,10,7,3],["HI","Hilo","University of Hawaii at Hilo",12,11,9,2],["IA","Des Moines","Drake University",26,26,20,6],["IA","Iowa City","University of Iowa",53,46,43,3],["ID","Pocatello","Idaho State University",30,23,19,4],["IL","Chicago","Chicago State University",2,1,0,1],["IL","Chicago","University of Illinois",104,90,76,14],["IL","Downers Grove","Midwestern University-Chicago",51,46,35,11],["IL","Edwardsville","Southern Illinois University",24,22,18,4],["IL","North Chicago","Rosalind Franklin University",7,6,1,5],["IL","Schaumburg","Roosevelt University",17,15,9,6],["IN","Fort Wayne","Manchester University",16,13,8,5],["IN","Indianapolis","Butler University",41,38,33,5],["IN","West Lafayette","Purdue University",71,68,62,6],["KS","Lawrence","University of Kansas",46,44,38,6],["KY","Lexington","University of Kentucky",59,55,45,10],["KY","Louisville","Sullivan University",11,10,9,1],["LA","Monroe","University of Louisiana - Monroe",6,5,3,2],["LA","New Orleans","Xavier University of Louisiana",31,28,22,6],["MA","Boston","MCPHS University - Boston",40,35,19,16],["MA","Boston","Northeastern University",38,34,26,8],["MA","Springfield","Western New England University",12,11,9,2],["MA","Worcester","MCPHS University-Worcester",19,15,10,5],["MD","Baltimore","Notre Dame of Maryland",17,17,10,7],["MD","Baltimore","University of Maryland",40,31,22,9],["MD","Princess Anne","UMES",7,6,6,0],["ME","Portland","University of New England",13,11,8,3],["MI","Ann Arbor","University of Michigan",45,40,34,6],["MI","Big Rapids","Ferris State University",48,44,32,12],["MI","Detroit","Wayne State University",44,42,29,13],["MN","Minneapolis","University of Minnesota",60,51,38,13],["MO","Kansas City","University of Missouri-KC",44,44,42,2],["MO","St. Louis","St. Louis College of Pharmacy",25,20,15,5],["MS","Biloxi","William Carey University",6,6,5,1],["MS","University","University of Mississippi",34,31,28,3],["MT","Missoula","University of Montana",20,19,19,0],["NC","Buies Creek","Campbell University",33,30,23,7],["NC","Chapel Hill","UNC Chapel Hill",73,69,65,4],["NC","High Point","High Point University",21,19,14,5],["NC","Wingate","Wingate University",13,10,8,2],["ND","Fargo","North Dakota State University",30,25,23,2],["NE","Omaha","Creighton University",26,23,19,4],["NE","Omaha","University of Nebraska",10,8,6,2],["NH","Manchester","MCPHS University-Manchester",5,5,3,2],["NJ","Florham Park","Fairleigh Dickinson University",17,16,9,7],["NJ","Piscataway","Rutgers University",83,76,57,19],["NM","Albuquerque","University of New Mexico",22,18,14,4],["NV","Henderson","Roseman University",29,26,19,7],["NY","Albany","Albany College of Pharmacy",38,34,23,11],["NY","Brooklyn","Long Island University",43,33,14,19],["NY","Buffalo","D'Youville College",17,16,13,3],["NY","Buffalo","SUNY Buffalo",62,55,45,10],["NY","Johnson City","Binghamton University",20,19,16,3],["NY","New York","Touro College of Pharmacy",13,13,9,4],["NY","Queens","St. John's University",54,45,27,18],["NY","Rochester","St. John Fisher College",26,21,19,2],["OH","Ada","Ohio Northern University",37,34,29,5],["OH","Cedarville","Cedarville University",16,14,11,3],["OH","Cincinnati","University of Cincinnati",33,31,29,2],["OH","Columbus","Ohio State University",58,50,41,9],["OH","Findlay","University of Findlay",26,24,20,4],["OH","Rootstown","Northeast Ohio Medical University",30,26,19,7],["OH","Toledo","University of Toledo",40,39,36,3],["OK","Oklahoma City","University of Oklahoma",20,17,13,4],["OK","Weatherford","Southwestern Oklahoma State",17,13,10,3],["OR","Corvallis","Oregon State University",47,43,34,9],["OR","Hillsboro","Pacific University",23,20,11,9],["PA","Erie","Lake Erie College - Erie",33,28,21,7],["PA","Philadelphia","Saint Joseph's University",45,39,33,6],["PA","Philadelphia","Temple University",28,23,14,9],["PA","Philadelphia","Thomas Jefferson University",21,21,11,10],["PA","Pittsburgh","Duquesne University",34,32,23,9],["PA","Pittsburgh","University of Pittsburgh",54,53,45,8],["PA","Wilkes-Barre","Wilkes University",25,22,17,5],["PR","San Juan","University of Puerto Rico",9,9,4,5],["RI","Kingston","University of Rhode Island",64,58,51,7],["SC","Charleston","MUSC",33,29,21,8],["SC","Clinton","Presbyterian College",9,7,4,3],["SC","Columbia","University of South Carolina",42,39,36,3],["SD","Brookings","South Dakota State University",30,29,26,3],["TN","Jackson","Union University",12,12,10,2],["TN","Johnson City","East Tennessee State University",21,19,16,3],["TN","Knoxville","South College",11,9,8,1],["TN","Memphis","University of Tennessee",60,57,47,10],["TN","Nashville","Belmont University",30,22,18,4],["TN","Nashville","Lipscomb University",17,17,14,3],["TX","Amarillo","Texas Tech University",38,30,21,9],["TX","Austin","University of Texas - Austin",51,44,37,7],["TX","El Paso","UT El Paso",20,14,12,2],["TX","Fort Worth","University of North Texas",31,25,13,12],["TX","Houston","Texas Southern University",13,9,4,5],["TX","Houston","University of Houston",58,52,36,16],["TX","Kingsville","Texas A & M University",35,30,22,8],["TX","San Antonio","University of Incarnate Word",18,12,11,1],["TX","Tyler","UT Tyler",6,4,3,1],["UT","Salt Lake City","University of Utah",26,25,20,5],["VA","Oakwood","Appalachian College of Pharmacy",15,11,6,5],["VA","Richmond","Virginia Commonwealth University",44,43,35,8],["VA","Winchester","Shenandoah University",24,21,19,2],["WA","Seattle","University of Washington",52,45,29,16],["WA","Spokane","Washington State University",28,24,20,4],["WI","Madison","University of Wisconsin",75,74,66,8],["WI","Mequon","Concordia University",25,24,22,2],["WI","Milwaukee","Medical College of Wisconsin",26,24,19,5],["WV","Charleston","University of Charleston",17,15,12,3],["WV","Huntington","Marshall University",8,7,5,2],["WV","Morgantown","West Virginia University",22,20,14,6],["WY","Laramie","University of Wyoming",15,13,13,0],["OTHER","Lebanon","Lebanese American University",17,13,4,9],["OTHER","Foreign","Foreign School (Non-ACPE)",20,10,2,8]];
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function parseSchools(arr){return arr.map(a=>({state:a[0],city:a[1],school:a[2],registered:a[3],active:a[4],matched:a[5],unmatched:a[6]}))}
+function aggregateStates(schools){const a={};schools.forEach(s=>{if(!a[s.state])a[s.state]={registered:0,active:0,matched:0,unmatched:0,schools:[]};a[s.state].registered+=s.registered;a[s.state].active+=s.active;a[s.state].matched+=s.matched;a[s.state].unmatched+=s.unmatched;a[s.state].schools.push(s)});return a}
+const schoolTrends={};YEARS.forEach(y=>{parseSchools(S[y]).forEach(s=>{if(!schoolTrends[s.school])schoolTrends[s.school]={};schoolTrends[s.school][y]=s})});
+const yearTotals={};YEARS.forEach(y=>{const sc=parseSchools(S[y]);yearTotals[y]=sc.reduce((a,s)=>({registered:a.registered+s.registered,active:a.active+s.active,matched:a.matched+s.matched,unmatched:a.unmatched+s.unmatched}),{registered:0,active:0,matched:0,unmatched:0})});
+
+function sparkSVG(vals,w,h,color,hl){if(!vals||vals.length<2)return'';const mx=Math.max(...vals),mn=Math.min(...vals),r=mx-mn||1;const pts=vals.map((v,i)=>{const x=(i/(vals.length-1))*(w-4)+2,y=h-2-((v-mn)/r)*(h-4);return`${x},${y}`});const l=pts[pts.length-1].split(',');let s=`<svg class="mini-chart" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="${color}" stroke-width="1.5" points="${pts.join(' ')}"/>`;if(hl)s+=`<circle cx="${l[0]}" cy="${l[1]}" r="2.5" fill="${color}"/>`;return s+'</svg>'}
+function chgBadge(cur,prev,invert){if(prev==null||prev===0)return'';const p=((cur-prev)/prev*100).toFixed(1),c=invert?(p>0?'down':p<0?'up':'flat'):(p>0?'up':p<0?'down':'flat'),a=p>0?'▲':p<0?'▼':'–';return`<div class="stat-change ${c}">${a} ${Math.abs(p)}% vs ${currentYear-1}</div>`}
+function yoyLine(label,cur,prev,invert){const d=cur-prev,p=prev?((d/prev)*100).toFixed(1):'—',c=invert?(d>0?'down':d<0?'up':'flat'):(d>0?'up':d<0?'down':'flat'),a=d>0?'▲':d<0?'▼':'–';return`<span class="${c}">${label}: ${a} ${Math.abs(d)} (${d>0?'+':''}${p}%)</span><br>`}
+
+const regionOrder=['CT','ME','MA','NH','RI','NJ','NY','PA','IL','IN','MI','OH','WI','IA','KS','MN','MO','NE','ND','SD','DC','FL','GA','MD','NC','SC','VA','WV','AL','KY','MS','TN','AR','LA','OK','TX','AZ','CO','ID','MT','NV','NM','UT','WY','CA','OR','WA','HI','PR','OTHER'];
+
+// ── UI RENDER ────────────────────────────────────────────────────
+function renderYearButtons(){document.getElementById('yearToggle').innerHTML=YEARS.map(y=>`<button class="year-btn ${y===currentYear?'active':''}" onclick="switchYear(${y})">${y}</button>`).join('')}
+function renderNote(){document.getElementById('dataNote').textContent=yearNotes[currentYear];document.getElementById('mainTitle').textContent=`Pharmacy Residency Match Flow — ${currentYear}`}
+function renderSummaryStats(){
+    const t=yearTotals[currentYear],p=posSummary[currentYear],g=pgy2Summary[currentYear];
+    const prev=currentYear>2022?yearTotals[currentYear-1]:null,prevP=currentYear>2022?posSummary[currentYear-1]:null,prevG=currentYear>2022?pgy2Summary[currentYear-1]:null;
+    const items=[
+        {val:t.registered.toLocaleString(),label:'PGY1 Registered',cur:t.registered,prv:prev?.registered,sp:YEARS.map(y=>yearTotals[y].registered),col:'#3498db'},
+        {val:t.active.toLocaleString(),label:'PGY1 Active',cur:t.active,prv:prev?.active,sp:YEARS.map(y=>yearTotals[y].active),col:'#3498db'},
+        {val:t.matched.toLocaleString(),label:'PGY1 Matched',cur:t.matched,prv:prev?.matched,sp:YEARS.map(y=>yearTotals[y].matched),col:'#2ecc71'},
+        {val:p.positions.toLocaleString(),label:'PGY1 Positions',cur:p.positions,prv:prevP?.positions,sp:YEARS.map(y=>posSummary[y].positions),col:'#9b59b6'},
+        {val:(p.filled/p.positions*100).toFixed(1)+'%',label:'PGY1 Fill Rate',cur:p.filled,prv:prevP?.filled,sp:YEARS.map(y=>posSummary[y].filled/posSummary[y].positions*100),col:'#e67e22'},
+        {val:g.filled.toLocaleString(),label:'PGY2 Filled',cur:g.filled,prv:prevG?.filled,sp:YEARS.map(y=>pgy2Summary[y].filled),col:'#1abc9c'},
+        {val:g.unfilled.toLocaleString(),label:'PGY2 Unfilled',cur:g.unfilled,prv:prevG?.unfilled,sp:YEARS.map(y=>pgy2Summary[y].unfilled),col:'#e74c3c',invert:true},
+        {val:(g.filled/g.positions*100).toFixed(1)+'%',label:'PGY2 Fill Rate',cur:g.filled,prv:prevG?.filled,sp:YEARS.map(y=>pgy2Summary[y].filled/pgy2Summary[y].positions*100),col:'#16a085'}
+    ];
+    document.getElementById('summaryStats').innerHTML=items.map(it=>`<div class="stat-item"><div class="stat-value">${it.val}</div><div class="stat-label">${it.label}</div>${chgBadge(it.cur,it.prv,it.invert)}<div class="sparkline-row">${sparkSVG(it.sp,70,20,it.col,true)}<span style="font-size:9px;color:#aaa;margin-left:3px">'22–'26</span></div></div>`).join('');
+}
+
+// ── PGY1 SANKEY ─────────────────────────────────────────────────
+const margin={top:10,right:250,bottom:10,left:100};
+const pgy1Width=1250;
+const svgTotalWidth=2700;
+const height=2000;
+let svgRoot;
+
+function buildSankey(){
+    d3.select('#chart').selectAll('*').remove();
+    const schools=parseSchools(S[currentYear]),stateAgg=aggregateStates(schools),p=posSummary[currentYear];
+    const tf=p.types_filled,tu=p.types_unfilled;
+
+    let nodes=[],links=[],nodeId=0;
+    const stateNodes={};
+    regionOrder.forEach(st=>{if(stateAgg[st]){stateNodes[st]=nodeId;nodes.push({name:st,id:nodeId,layer:0,...stateAgg[st]});nodeId++}});
+
+    const A={};['withdrew','matched','unmatched','positions','filled','unfilled','gen_f','com_f','man_f','adm_f','oth_f','gen_u','com_u','adm_u','oth_u'].forEach(k=>{A[k]=nodeId++});
+    nodes.push(
+        {name:"Withdrew",id:A.withdrew,layer:1},{name:"Active in Match, Matched to PGY1",id:A.matched,layer:1},{name:"Active & Unmatched",id:A.unmatched,layer:1},
+        {name:"PGY1 Positions",id:A.positions,layer:2},{name:"Filled",id:A.filled,layer:3},{name:"Unfilled",id:A.unfilled,layer:3},
+        {name:`PGY1 General (${tf.general.toLocaleString()})`,id:A.gen_f,layer:4},{name:`PGY1 Community (${tf.community})`,id:A.com_f,layer:4},
+        {name:`PGY1 Managed Care (${tf.managed})`,id:A.man_f,layer:4},{name:`PGY1&2 Admin (${tf.admin})`,id:A.adm_f,layer:4},{name:`Other Programs (${tf.other})`,id:A.oth_f,layer:4},
+        {name:`General Unfilled (${tu.general})`,id:A.gen_u,layer:4},{name:`Community Unfilled (${tu.community})`,id:A.com_u,layer:4},
+        {name:`Admin Unfilled (${tu.admin})`,id:A.adm_u,layer:4},{name:`Other Unfilled (${tu.other})`,id:A.oth_u,layer:4}
+    );
+    Object.keys(stateNodes).forEach(st=>{const d=stateAgg[st],w=d.registered-d.active;if(w>0)links.push({source:stateNodes[st],target:A.withdrew,value:w,color:'#f39c12'});if(d.matched>0)links.push({source:stateNodes[st],target:A.matched,value:d.matched,color:'#2ecc71'});if(d.unmatched>0)links.push({source:stateNodes[st],target:A.unmatched,value:d.unmatched,color:'#e74c3c'})});
+    links.push({source:A.matched,target:A.positions,value:p.filled},{source:A.positions,target:A.filled,value:p.filled},{source:A.positions,target:A.unfilled,value:p.unfilled},
+        {source:A.filled,target:A.gen_f,value:tf.general},{source:A.filled,target:A.com_f,value:tf.community},{source:A.filled,target:A.man_f,value:tf.managed},{source:A.filled,target:A.adm_f,value:tf.admin},{source:A.filled,target:A.oth_f,value:tf.other},
+        {source:A.unfilled,target:A.gen_u,value:tu.general},{source:A.unfilled,target:A.com_u,value:tu.community},{source:A.unfilled,target:A.adm_u,value:tu.admin},{source:A.unfilled,target:A.oth_u,value:tu.other});
+
+    const getColor=n=>{if(n.layer===0)return'#34495e';if(n.name==='Withdrew')return'#f39c12';if(n.name.includes('Matched'))return'#2ecc71';if(n.name==='Active & Unmatched')return'#e74c3c';if(n.name==='PGY1 Positions')return'#95a5a6';if(n.name==='Filled')return'#2ecc71';if(n.name==='Unfilled')return'#e74c3c';if(n.name.includes('Unfilled'))return'#e74c3c';if(n.layer===4)return'#9b59b6';return'#95a5a6'};
+
+    svgRoot=d3.select('#chart').append('svg').attr('width',svgTotalWidth).attr('height',height+margin.top+margin.bottom);
+    const svg=svgRoot.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+    const tooltip=d3.select('#tooltip');
+
+    const sankeyGen=d3.sankey().nodeId(d=>d.id).nodeWidth(20).nodePadding(15).extent([[0,0],[pgy1Width,height]]).nodeSort((a,b)=>a.layer!==b.layer?a.layer-b.layer:a.id-b.id);
+    const graph=sankeyGen({nodes:nodes.map(d=>Object.assign({},d)),links:links.map(d=>Object.assign({},d))});
+    const cw=pgy1Width/5;
+    graph.nodes.forEach(n=>{const col=[0,1.5,2.5,3.5,4.5][n.layer]||0;n.x0=col*cw;n.x1=col*cw+20});
+    sankeyGen.update(graph);
+
+    svg.append('g').selectAll('path').data(graph.links).join('path').attr('class','link').attr('d',d3.sankeyLinkHorizontal()).attr('stroke-width',d=>Math.max(1,d.width)).style('stroke',d=>d.color||getColor(d.source))
+        .on('mouseover',function(e,d){tooltip.style('display','block').html(`<strong>${d.source.name} → ${d.target.name}</strong><br>Count: ${d.value.toLocaleString()}`)}).on('mousemove',function(e){tooltip.style('left',(e.pageX+10)+'px').style('top',(e.pageY-10)+'px')}).on('mouseout',()=>tooltip.style('display','none'));
+
+    const node=svg.append('g').selectAll('g').data(graph.nodes).join('g').attr('class','node').call(d3.drag().on('start',function(){d3.select(this).raise()}).on('drag',function(e,d){const nw=d.x1-d.x0,nh=d.y1-d.y0;d.x0=Math.max(0,Math.min(pgy1Width-nw,e.x));d.x1=d.x0+nw;d.y0=Math.max(0,Math.min(height-nh,e.y));d.y1=d.y0+nh;d3.select(this).select('rect').attr('x',d.x0).attr('y',d.y0);d3.select(this).selectAll('text').attr('x',d=>d.x0<pgy1Width/2?d.x1+6:d.x0-6).attr('y',d=>(d.y1+d.y0)/2);sankeyGen.update(graph);svg.selectAll('.link').attr('d',d3.sankeyLinkHorizontal())}));
+    node.append('rect').attr('x',d=>d.x0).attr('y',d=>d.y0).attr('height',d=>d.y1-d.y0).attr('width',d=>d.x1-d.x0).attr('fill',d=>getColor(d))
+        .on('click',function(e,d){if(d.layer===0)showStateDetail(d.name,stateAgg)})
+        .on('mouseover',function(e,d){let h=`<strong>${d.name}</strong><br>`;if(d.layer===0&&stateAgg[d.name]){const sd=stateAgg[d.name],w=sd.registered-sd.active;h+=`Registered: ${sd.registered}<br>Active: ${sd.active}<br><span style="color:#f39c12">Withdrew: ${w}</span><br><span style="color:#2ecc71">Matched: ${sd.matched}</span><br><span style="color:#e74c3c">Unmatched: ${sd.unmatched}</span><br>`;const py=currentYear-1;if(YEARS.includes(py)){const pa=aggregateStates(parseSchools(S[py]));if(pa[d.name]){const ps=pa[d.name];h+=`<div class="yoy"><strong>${py} comparison:</strong><br>${yoyLine('Registered',sd.registered,ps.registered)}${yoyLine('Matched',sd.matched,ps.matched)}${yoyLine('Unmatched',sd.unmatched,ps.unmatched,true)}</div>`}}h+=`<em>Click to see schools</em>`}else{h+=`Count: ${d.value.toLocaleString()}`}tooltip.style('display','block').html(h)})
+        .on('mousemove',function(e){tooltip.style('left',(e.pageX+10)+'px').style('top',(e.pageY-10)+'px')}).on('mouseout',()=>tooltip.style('display','none'));
+    node.append('text').attr('x',d=>d.x0<pgy1Width/2?d.x1+6:d.x0-6).attr('y',d=>(d.y1+d.y0)/2).attr('dy','0.35em').attr('text-anchor',d=>d.x0<pgy1Width/2?'start':'end').text(d=>d.name).style('font-size','11px').style('font-weight','500');
+    node.append('text').attr('x',d=>d.x0<pgy1Width/2?d.x1+6:d.x0-6).attr('y',d=>(d.y1+d.y0)/2).attr('dy','1.5em').attr('text-anchor',d=>d.x0<pgy1Width/2?'start':'end').text(d=>d.value.toLocaleString()).style('font-size','10px').style('fill','#666');
+
+    // ── PGY2 SECTION (proper second Sankey) ────────────────────
+    drawPGY2(svg, tooltip);
+}
+
+function drawPGY2(svg, tooltip) {
+    const g2 = pgy2Summary[currentYear];
+
+    // Layout: Positions → Category totals → Filled/Unfilled per category
+    const typeKeys = ['ambcare','critcare','onc','id','em','peds','psych','cardio','intmed','transplant','admin','other'];
+    const activeTypes = typeKeys.filter(k => (g2.types_filled[k]||0) + (g2.types_unfilled[k]||0) > 0);
+
+    let pNodes = [], pLinks = [], pid = 0;
+    const P = {};
+
+    // Layer 0: PGY2 Positions
+    P.positions = pid;
+    pNodes.push({name:'PGY2 Positions', id:pid++, pgy2layer:0, pgy2key:'positions', pgy2side:'all'});
+
+    // Layer 1: Category totals
+    activeTypes.forEach(k => {
+        const total = (g2.types_filled[k]||0) + (g2.types_unfilled[k]||0);
+        const fillPct = total > 0 ? Math.round((g2.types_filled[k]||0) / total * 100) : 0;
+        P['cat_'+k] = pid;
+        pNodes.push({name: pgy2TypeLabels[k], id:pid++, pgy2layer:1, pgy2key:k, pgy2side:'category', catTotal:total, catFillPct:fillPct});
+    });
+
+    // Layer 2: Filled + Unfilled per category
+    activeTypes.forEach(k => {
+        const fv = g2.types_filled[k]||0, uv = g2.types_unfilled[k]||0;
+        if (fv > 0) { P['filled_'+k] = pid; pNodes.push({name:'Filled ('+fv+')', id:pid++, pgy2layer:2, pgy2key:k, pgy2side:'filled'}); }
+        if (uv > 0) { P['unfilled_'+k] = pid; pNodes.push({name:'Unfilled ('+uv+')', id:pid++, pgy2layer:2, pgy2key:k, pgy2side:'unfilled'}); }
+    });
+
+    // Links: Positions → category totals
+    activeTypes.forEach(k => {
+        const total = (g2.types_filled[k]||0) + (g2.types_unfilled[k]||0);
+        pLinks.push({source:P.positions, target:P['cat_'+k], value:total, ltype:'category'});
+    });
+
+    // Links: category → filled/unfilled
+    activeTypes.forEach(k => {
+        const fv = g2.types_filled[k]||0, uv = g2.types_unfilled[k]||0;
+        if (fv > 0) pLinks.push({source:P['cat_'+k], target:P['filled_'+k], value:fv, ltype:'filled'});
+        if (uv > 0) pLinks.push({source:P['cat_'+k], target:P['unfilled_'+k], value:uv, ltype:'unfilled'});
+    });
+
+    // Colors
+    const pgy2Color = n => {
+        if (n.pgy2key === 'positions') return '#95a5a6';
+        if (n.pgy2side === 'category') return pgy2TypeColors[n.pgy2key] || '#1abc9c';
+        if (n.pgy2side === 'filled') return '#2ecc71';
+        if (n.pgy2side === 'unfilled') return '#e74c3c';
+        return '#95a5a6';
+    };
+    const linkColor = d => {
+        if (d.ltype === 'filled') return '#2ecc71';
+        if (d.ltype === 'unfilled') return '#e74c3c';
+        return pgy2TypeColors[d.target.pgy2key] || '#1abc9c';
+    };
+
+    // Layout dimensions
+    const pgy2Left = 1380, pgy2Width = 700, pgy2Height = 1400, pgy2Top = 60;
+
+    // Header
+    svg.append('line').attr('x1',pgy2Left-20).attr('y1',20).attr('x2',pgy2Left-20).attr('y2',pgy2Top+pgy2Height+20)
+        .attr('stroke','#bdc3c7').attr('stroke-width',1).attr('stroke-dasharray','6,4');
+    svg.append('text').attr('x',pgy2Left).attr('y',pgy2Top-25).text('PGY2 MATCH — Fill Rate by Specialty')
+        .style('font-size','14px').style('font-weight','700').style('fill','#2c3e50');
+    const frVals = YEARS.map(y=>pgy2Summary[y].filled/pgy2Summary[y].positions*100);
+    const sparkEl = svg.append('foreignObject').attr('x',pgy2Left).attr('y',pgy2Top-18).attr('width',420).attr('height',22);
+    sparkEl.append('xhtml:div').html(
+        `<span style="font-size:11px;color:#7f8c8d">${g2.positions} total positions · Overall fill rate: ${(g2.filled/g2.positions*100).toFixed(1)}%</span> `+
+        `${sparkSVG(frVals,60,16,'#1abc9c',true)} <span style="font-size:9px;color:#aaa">'22–'26</span>`
+    );
+
+    // Sankey
+    const pgy2Sankey = d3.sankey()
+        .nodeId(d => d.id).nodeWidth(20).nodePadding(6)
+        .extent([[pgy2Left, pgy2Top],[pgy2Left + pgy2Width, pgy2Top + pgy2Height]])
+        .nodeSort((a,b) => {
+            if (a.pgy2layer !== b.pgy2layer) return a.pgy2layer - b.pgy2layer;
+            if (a.pgy2layer === 2 && a.pgy2key === b.pgy2key) return a.pgy2side === 'filled' ? -1 : 1;
+            return a.id - b.id;
+        });
+
+    const pgy2Graph = pgy2Sankey({
+        nodes: pNodes.map(d => Object.assign({}, d)),
+        links: pLinks.map(d => Object.assign({}, d))
+    });
+
+    // Force column x-positions
+    const colX = [pgy2Left, pgy2Left + pgy2Width * 0.35, pgy2Left + pgy2Width * 0.78];
+    pgy2Graph.nodes.forEach(n => { const cx = colX[n.pgy2layer], w = n.x1 - n.x0; n.x0 = cx; n.x1 = cx + w; });
+    pgy2Sankey.update(pgy2Graph);
+
+    // Links
+    const pgy2LinkGroup = svg.append('g');
+    const pgy2Links = pgy2LinkGroup.selectAll('.pgy2-link').data(pgy2Graph.links).join('path')
+        .attr('class','pgy2-link').attr('d', d3.sankeyLinkHorizontal())
+        .attr('stroke-width', d => Math.max(1, d.width))
+        .style('stroke', d => linkColor(d)).style('stroke-opacity', 0.25).style('fill','none')
+        .on('mouseover', function(e,d) { d3.select(this).style('stroke-opacity',0.5); tooltip.style('display','block').html(`<strong>${d.source.name} → ${d.target.name}</strong><br>Count: ${d.value.toLocaleString()}`); })
+        .on('mousemove', function(e) { tooltip.style('left',(e.pageX+10)+'px').style('top',(e.pageY-10)+'px'); })
+        .on('mouseout', function() { d3.select(this).style('stroke-opacity',0.25); tooltip.style('display','none'); });
+
+    // Nodes with drag
+    const pgy2Node = svg.append('g').selectAll('.pgy2-node').data(pgy2Graph.nodes).join('g').attr('class','pgy2-node')
+        .call(d3.drag()
+            .on('start', function() { d3.select(this).raise(); })
+            .on('drag', function(e, d) {
+                const nw = d.x1-d.x0, nh = d.y1-d.y0;
+                d.x0 = Math.max(0,e.x); d.x1 = d.x0+nw; d.y0 = Math.max(0,e.y); d.y1 = d.y0+nh;
+                d3.select(this).select('rect').attr('x',d.x0).attr('y',d.y0);
+                d3.select(this).selectAll('text').attr('x',d.x1+6).attr('y',(d.y1+d.y0)/2);
+                pgy2Sankey.update(pgy2Graph);
+                pgy2Links.attr('d', d3.sankeyLinkHorizontal());
+            }));
+
+    pgy2Node.append('rect')
+        .attr('x', d=>d.x0).attr('y', d=>d.y0).attr('height', d=>d.y1-d.y0).attr('width', d=>d.x1-d.x0)
+        .attr('fill', d=>pgy2Color(d)).attr('fill-opacity', d=>d.pgy2side==='unfilled'?0.8:0.9)
+        .attr('stroke','#000').attr('stroke-width',0.5)
+        .on('mouseover', function(e,d) {
+            const key = d.pgy2key;
+            let yearVals, col = '#1abc9c', extra = '';
+            if (key === 'positions') { yearVals = YEARS.map(y=>pgy2Summary[y].positions); }
+            else if (d.pgy2side === 'category') {
+                yearVals = YEARS.map(y=>(pgy2Summary[y].types_filled[key]||0)+(pgy2Summary[y].types_unfilled[key]||0));
+                col = pgy2TypeColors[key];
+                const fv=g2.types_filled[key]||0, uv=g2.types_unfilled[key]||0, tot=fv+uv;
+                extra = `<br><strong>Fill rate: ${tot>0?(fv/tot*100).toFixed(1):0}%</strong> (${fv} filled, ${uv} unfilled)`;
+                extra += '<br><span style="font-size:11px;color:#aaa">Fill rate by year:</span><br>';
+                YEARS.forEach(y => {
+                    const yf=pgy2Summary[y].types_filled[key]||0, yu=pgy2Summary[y].types_unfilled[key]||0, yt=yf+yu;
+                    const bold = y===currentYear ? 'font-weight:bold;' : '';
+                    extra += `<span style="${bold}">${y}: ${yt>0?(yf/yt*100).toFixed(0):'—'}%</span> `;
+                });
+            } else if (d.pgy2side === 'filled') { yearVals = YEARS.map(y=>pgy2Summary[y].types_filled[key]||0); col = '#2ecc71'; }
+            else { yearVals = YEARS.map(y=>pgy2Summary[y].types_unfilled[key]||0); col = '#e74c3c'; }
+            const isUnfilled = d.pgy2side === 'unfilled';
+            tooltip.style('display','block').html(pgy2Tooltip(d.name, d.value, yearVals, col, isUnfilled) + extra);
+        })
+        .on('mousemove', function(e) { tooltip.style('left',(e.pageX+10)+'px').style('top',(e.pageY-10)+'px'); })
+        .on('mouseout', ()=>tooltip.style('display','none'));
+
+    // Labels — show fill % on category nodes
+    pgy2Node.append('text')
+        .attr('x', d=>d.x1+6).attr('y', d=>(d.y1+d.y0)/2).attr('dy','0.35em').attr('text-anchor','start')
+        .text(d => {
+            if (d.pgy2side === 'category') {
+                const fv=g2.types_filled[d.pgy2key]||0, tot=d.catTotal;
+                return d.name+' ('+tot+') — '+(tot>0?Math.round(fv/tot*100):0)+'% filled';
+            }
+            return d.name;
+        })
+        .style('font-size','11px').style('font-weight', d=>d.pgy2side==='category'?'600':'500')
+        .style('fill', d=>d.pgy2side==='unfilled'?'#c0392b':'#333');
+
+    pgy2Node.append('text')
+        .attr('x', d=>d.x1+6).attr('y', d=>(d.y1+d.y0)/2).attr('dy','1.5em').attr('text-anchor','start')
+        .text(d=>d.value.toLocaleString()).style('font-size','10px').style('fill','#666');
+}
+
+function pgy2Tooltip(label, value, yearVals, col, invert) {
+    col = col || '#1abc9c';
+    let h = `<strong>${label}</strong><br>Current: ${value.toLocaleString()}<br>`;
+    h += `<div class="yoy"><strong>5-Year Trend:</strong><br>`;
+    YEARS.forEach((y,i) => {
+        const v = yearVals[i];
+        const bold = y === currentYear ? 'font-weight:bold;' : '';
+        h += `<span style="${bold}">${y}: ${v.toLocaleString()}</span>`;
+        if (i > 0) {
+            const prev = yearVals[i-1];
+            const diff = v - prev;
+            const cls = invert ? (diff > 0 ? 'down' : diff < 0 ? 'up' : 'flat') : (diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat');
+            const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '–';
+            h += ` <span class="${cls}">${arrow}${Math.abs(diff)}</span>`;
+        }
+        h += '<br>';
+    });
+    h += `</div>${sparkSVG(yearVals, 120, 28, col, true)}`;
+    return h;
+}
+
+// ── STATE DETAIL PANEL ──────────────────────────────────────────
+function showStateDetail(stateName,stateAgg){
+    if(!stateAgg[stateName])return;
+    const panel=document.getElementById('stateDetail'),content=document.getElementById('stateDetailContent');
+    const sd=stateAgg[stateName],w=sd.registered-sd.active;
+    let html=`<h3>${stateName} — ${currentYear} Schools</h3><div style="margin-bottom:15px;padding:10px;background:#e8f4f8;border-radius:4px;"><strong>State Totals:</strong><br>Registered: ${sd.registered} | Active: ${sd.active} | <span style="color:#f39c12;font-weight:bold;">Withdrew: ${w}</span> | <span style="color:#2ecc71;font-weight:bold;">Matched: ${sd.matched}</span> | <span style="color:#e74c3c;font-weight:bold;">Unmatched: ${sd.unmatched}</span></div>`;
+    sd.schools.forEach(school=>{
+        const sw=school.registered-school.active,trend=schoolTrends[school.school];
+        const mV=YEARS.map(y=>trend&&trend[y]?trend[y].matched:null).filter(v=>v!==null);
+        const rV=YEARS.map(y=>trend&&trend[y]?trend[y].registered:null).filter(v=>v!==null);
+        const uV=YEARS.map(y=>trend&&trend[y]?trend[y].unmatched:null).filter(v=>v!==null);
+        html+=`<div class="school-item"><div class="school-name">${school.school}</div><div class="school-stats"><div class="stat-row"><span>Registered:</span><strong>${school.registered}</strong></div><div class="stat-row"><span>Active:</span><strong>${school.active}</strong></div><div class="stat-row"><span>Withdrew:</span><strong style="color:#f39c12">${sw}</strong></div><div class="stat-row"><span>Matched:</span><strong style="color:#2ecc71">${school.matched}</strong></div><div class="stat-row"><span>Unmatched:</span><strong style="color:#e74c3c">${school.unmatched}</strong></div><div class="stat-row"><span>Match Rate:</span><strong>${school.active>0?(school.matched/school.active*100).toFixed(0)+'%':'N/A'}</strong></div></div><div class="school-trend-row"><span class="school-trend-label">Registered</span>${sparkSVG(rV,70,18,'#3498db',true)}<span class="school-trend-label" style="margin-left:8px">Matched</span>${sparkSVG(mV,70,18,'#2ecc71',true)}<span class="school-trend-label" style="margin-left:8px">Unmatched</span>${sparkSVG(uV,70,18,'#e74c3c',true)}</div><div style="font-size:10px;color:#aaa;margin-top:2px">5-year trend (2022–2026)</div></div>`;
+    });
+    content.innerHTML=html;panel.style.display='block';
+}
+
+function switchYear(y){currentYear=y;renderYearButtons();renderSummaryStats();renderNote();buildSankey()}
+renderYearButtons();renderSummaryStats();renderNote();buildSankey();
+</script>
+</body>
+</html>
